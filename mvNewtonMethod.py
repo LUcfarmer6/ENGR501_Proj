@@ -30,7 +30,7 @@ from matplotlib import pyplot as plt
 eps_dot = 0.1        # Strain Rate in Units [1/s]
 perc_elong = 11     # percent elongation * 100
 N_partitions = 200
-time_step = perc_elong/(eps_dot/100)/N_partitions   # Time step [seconds]
+time_step = perc_elong/eps_dot/100/N_partitions   # Time step [seconds]
 T = 296             # Temperature [Kelvin] (23°C)
 C = np.ones(19)
 # sigma_n = jnp.zeros(N_partitions)           # Initial value of stress (should be zero)
@@ -100,7 +100,7 @@ def radialReturn(sigma_n, delta_eps_p_n, kappa_n):          # Defines function i
         sigma_n1 = sigma_tr                     # Stress at next iteration is equal to stress at current iteration plus a change in stress
         delta_eps = delta_eps_e  # Total strain is equal to the elastic strain
         kappa_n1 = kappa_tr
-        delta_eps_p_n1 = delta_eps
+        delta_eps_p_n1 = 0
         print("ELASTIC")
     else:                                       # If yield function greater than zero, plasticity occurs. Must solve for plastic strain numerically
         # (reference the N-R method function here so solve plastic strain)
@@ -142,8 +142,8 @@ def multivariateNewton(f, x0, tol, N):
         x = jnp.subtract(x0, jnp.matmul(J_inv(x0), f(x0).T)) # Perform Newton Iteration: x_{n+1} = x_n-J^(-1)*f
         # reltol = jnp.divide(jnp.linalg.norm(jnp.subtract(x,x0), np.inf),jnp.linalg.norm(x, np.inf)) # Calculate: ||x_{n+1}-x_n||/||x_{n+1}||
         atol = jnp.linalg.norm(jnp.subtract(x,x0), np.inf) # Calculate: ||x_{n+1}-x_n||/||x_{n+1}||
-        # print(i, tol)               # Print iteration and relTol
-        if atol < tol:            # Check for convergence
+        # print(i, tol)             # Print iteration and relTol
+        if atol < tol:              # Check for convergence
             # print(x)              # Print Result
             return x                # Return Result
         x0 = x                      # Update x0 for Next iteration
@@ -151,7 +151,7 @@ def multivariateNewton(f, x0, tol, N):
 
 
 ## Main Logical Loop to build Stress-Strain curve
-for n in range(0,N_partitions):     # nth timestep partition of strain subdivisions
+for n in range(0,N_partitions):       # nth timestep partition of strain subdivisions
     # sigma_n = sigma_n1              # makes current stress from previous future stress
     # delta_eps_p_n = delta_eps_p_n1  # delta_eps_p_k, initially 0, should be output at end of current iteration for future iteration
     # kappa_n = kappa_n1              # makes current kappa from previous future kappa
@@ -167,7 +167,9 @@ for n in range(0,N_partitions):     # nth timestep partition of strain subdivisi
     print(sigma_n)
     # print(delta_eps_p_n)
     print(n)
-plt.plot(range(0, N_partitions + 1), sigma_n)
+# plot stress-strain curve
+# converts x-axis from partitions to total strain applied
+plt.plot(time_step*range(0, N_partitions + 1)/eps_dot, sigma_n)
 plt.show()
 ## End of Document
 # that's all folks!
