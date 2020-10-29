@@ -40,31 +40,35 @@ delta_eps_p_n = [0.0]
 # kappa_n = jnp.zeros(N_partitions)           # Initial value of kappa
 # delta_eps_p_n = jnp.zeros(N_partitions)     # Initial guess for plastic strain
 mu = 1                                      # Shear modulus [GPa] (guess value)
-C[1] = 312.86e6
-C[2] = 154.78
-C[3] = 27.2e6
-C[4] = 818.26
-C[5] = 6914.1
-C[6] = 233.39
-C[7] = 9e-6
-C[8] = 1632.34
-C[9] = 148.36e6
-C[10] = 942.28
-C[11] = 100.67e-6
-C[12] = 2517.12
-C[13] = 98.53e-6
-C[14] = 171.56
-C[15] = 8950.63e6
-C[16] = 279.18
-C[17] = 7363.75e-6
-C[18] = 3316.82
+C[1] = 312.86e6         # MPa
+C[2] = 154.78           # K
+C[3] = 27.2e6           # MPa
+C[4] = 818.26           # K
+C[5] = 6914.1           # 1/s
+C[6] = 233.39           # K
+C[7] = 9e-6             # 1/MPa
+C[8] = 1632.34          # K
+C[9] = 148.36e6         # MPa
+C[10] = 942.28          # K
+C[11] = 100.67e-6       # s/MPa
+C[12] = 2517.12         # K
+C[13] = 98.53e-6        # 1/MPa
+C[14] = 171.56          # K
+C[15] = 8950.63e6       # MPa
+C[16] = 279.18          # K
+C[17] = 7363.75e-6      # s/MPa
+C[18] = 3316.82         # K
 
 #   Equation constants
-V = C[1] * jnp.exp(-C[2] / T)
-f = C[5] * jnp.exp(-C[6] / T)
-R_d = C[13] * jnp.exp(-C[14] / T)
-H = C[15] - C[16] * T
-R_s = C[17] * jnp.exp(-C[18] / T)
+# P = pressure (Mega-Pascals)
+# T = temperature (Kelvin)
+# s = time (seconds)
+V = C[1] * jnp.exp(-C[2] / T)       # P*e^(T/T)
+f = C[5] * jnp.exp(-C[6] / T)       # (1/s)*e^(T/T)
+R_d = C[13] * jnp.exp(-C[14] / T)   # (1/P)*e^(T/T)
+# ?? not sure how the units of H work out ??
+H = C[15] - C[16] * T               # P - T^2 
+R_s = C[17] * jnp.exp(-C[18] / T)   # (s/P)*e^(T/T)
 
 # OUTPUT: Array of dependent Results res = [f0, f1, ..., fn]
 #   Outputs will be arrays of strain and stress data to be plotted
@@ -86,9 +90,12 @@ def radialReturn(sigma_n, delta_eps_p_n, kappa_n):          # Defines function i
     # kappa_n1: guess for kappa at next timestep iteration
 
     # First making Elastic prediction
-    delta_eps_e = eps_dot*time_step             # Elastic strain increment
-    delta_sigma_tr = 2*mu*delta_eps_e           # Hooke's Law (2*mu = E)
-    sigma_tr = sigma_n + delta_sigma_tr  # Stress at next iteration is equal to stress at current iteration plus a change in stress
+    # Elastic strain increment
+    delta_eps_e = eps_dot*time_step             # eps = (eps_dot)*(time)
+    # Hooke's Law (2*mu = E)
+    delta_sigma_tr = 2*mu*delta_eps_e           # GPa   <-- this come from mu (line 42)!!
+    # Stress at next iteration is equal to stress at current iteration plus a change in stress
+    sigma_tr = sigma_n + delta_sigma_tr         # ___ = ___ + GPa
     print(sigma_tr)
     # kappa_tr = kappa_n-(R_d*delta_eps_p_n+R_s*time_step)*kappa_n**2
     kappa_tr = kappa_n-(R_d*delta_eps_e+R_s*time_step)*kappa_n**2
