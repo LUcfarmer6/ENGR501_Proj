@@ -97,7 +97,7 @@ def radialReturn(sigma_n, delta_eps_p_n, kappa_n):          # Defines function i
     # Stress at next iteration is equal to stress at current iteration plus a change in stress
     sigma_tr = sigma_n + delta_sigma_tr         # MPa
     print(sigma_tr)
-    # ___ = ___ - [(1/P)(eps/s) + (s/P)(s)](___)
+    # ___ = ___ - [(1/P)(eps) + (s/P)(s)](___)^2
     # kappa needs to evaluate to (MPa) for Y_f (line 107) !!
     # kappa_tr = kappa_n-(R_d*delta_eps_p_n+R_s*time_step)*kappa_n**2
     kappa_tr = kappa_n-(R_d*delta_eps_e+R_s*time_step)*kappa_n**2
