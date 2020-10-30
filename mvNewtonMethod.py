@@ -39,7 +39,7 @@ kappa_n = [0.0]
 delta_eps_p_n = [0.0]
 # kappa_n = jnp.zeros(N_partitions)           # Initial value of kappa
 # delta_eps_p_n = jnp.zeros(N_partitions)     # Initial guess for plastic strain
-mu = 1                                      # Shear modulus [GPa] (guess value)
+mu = 1e3                                      # Shear modulus [MPa] (guess value)
 C[1] = 312.86e6         # MPa
 C[2] = 154.78           # K
 C[3] = 27.2e6           # MPa
@@ -66,7 +66,7 @@ C[18] = 3316.82         # K
 V = C[1] * jnp.exp(-C[2] / T)       # P*e^(T/T)
 f = C[5] * jnp.exp(-C[6] / T)       # (1/s)*e^(T/T)
 R_d = C[13] * jnp.exp(-C[14] / T)   # (1/P)*e^(T/T)
-# ?? not sure how the units of H work out ??
+# (line 122) shows H must be MPa
 H = C[15] - C[16] * T               # P - T^2 
 R_s = C[17] * jnp.exp(-C[18] / T)   # (s/P)*e^(T/T)
 
@@ -93,43 +93,57 @@ def radialReturn(sigma_n, delta_eps_p_n, kappa_n):          # Defines function i
     # Elastic strain increment
     delta_eps_e = eps_dot*time_step             # eps = (eps_dot)*(time)
     # Hooke's Law (2*mu = E)
-    delta_sigma_tr = 2*mu*delta_eps_e           # GPa   <-- this come from mu (line 42)!!
+    delta_sigma_tr = 2*mu*delta_eps_e           # MPa   <-- this come from mu (line 42) !!
     # Stress at next iteration is equal to stress at current iteration plus a change in stress
-    sigma_tr = sigma_n + delta_sigma_tr         # ___ = ___ + GPa
+    sigma_tr = sigma_n + delta_sigma_tr         # MPa
     print(sigma_tr)
+    # ___ = ___ - [(1/P)(eps/s) + (s/P)(s)](___)
+    # kappa needs to evaluate to (MPa) for Y_f (line 107) !!
     # kappa_tr = kappa_n-(R_d*delta_eps_p_n+R_s*time_step)*kappa_n**2
     kappa_tr = kappa_n-(R_d*delta_eps_e+R_s*time_step)*kappa_n**2
-    # beta = V * jnp.arcsinh(delta_eps_p_n/time_step/f)
-    beta = V * jnp.arcsinh(eps_dot/f)
-    Y_f = sigma_tr-kappa_tr-beta                # Yield function. Should be a function of stress, ISV's, and strain rate
+    # beta = V * jnp.arcsinh(delta_eps_p_n/time_step/f)         # MPa
+    beta = V * jnp.arcsinh(eps_dot/f)       # MPa[sin((1/s)/(1/s))]
+    # Yield function should be a function of stress, ISV's, and strain rate
+    Y_f = sigma_tr-kappa_tr-beta        # MPa
 
     if Y_f <= 0:                                # If less than zero, deformation is purely elastic
-        sigma_n1 = sigma_tr                     # Stress at next iteration is equal to stress at current iteration plus a change in stress
-        delta_eps = delta_eps_e  # Total strain is equal to the elastic strain
-        kappa_n1 = kappa_tr
-        delta_eps_p_n1 = 0
+        # Stress at next iteration is equal to stress at current iteration plus a change in stress
+        sigma_n1 = sigma_tr             # MPa
+        # Total strain is equal to the elastic strain
+        delta_eps = delta_eps_e         # eps
+        kappa_n1 = kappa_tr             # MPa
+        delta_eps_p_n1 = 0              # eps
         print("ELASTIC")
     else:                                       # If yield function greater than zero, plasticity occurs. Must solve for plastic strain numerically
         # (reference the N-R method function here so solve plastic strain)
-        delta_eps_p_n1 = delta_eps_p_n  # initial guess for plastic strain is previous plastic strain
-        kappa_n1 = kappa_tr + H * delta_eps_p_n1   # initial guess of future kappa with initial guess of future plastic strain
+        # initial guess for plastic strain is previous plastic strain
+        delta_eps_p_n1 = delta_eps_p_n      # eps/s
+        # initial guess of future kappa with initial guess of future plastic strain
+        kappa_n1 = kappa_tr + H * delta_eps_p_n1        # must be MPa <-- H must be MPa
         xs = [delta_eps_p_n1, kappa_n1]    # vector of future guesses
         def fs(x):
             result = plasticity(x, sigma_tr, kappa_tr, delta_eps_p_n, kappa_n)  # input "xs" returns array "fs"
             return result
         res = multivariateNewton(fs, xs, 1e-5, 30) # Perform Newton Method for System "fs" with guess  [x0,x1,x2] = [1,1,1] with tol = 1e-8 and N maximum iterations
         # print(fs(res))                  # Print "fs" output for system
-        delta_eps_p_n1 = res[0]         # proclaims future delta_eps_p from Newton Raphson
-        sigma_n1 = sigma_tr - 2 * mu * delta_eps_p_n1  # proclaims future stress
+        # proclaims future delta_eps_p from Newton Raphson
+        delta_eps_p_n1 = res[0]         # eps
+        # proclaims future stress
+        sigma_n1 = sigma_tr - 2 * mu * delta_eps_p_n1       # MPa
         # print(sigma_n1)
-        kappa_n1 = res[1]                   # proclaims future kappa from Newton Raphson's F2
+        # proclaims future kappa from Newton Raphson's F2
+        kappa_n1 = res[1]               # MPa
     return [sigma_n1, kappa_n1, delta_eps_p_n1]
 
-def plasticity(x, sigma_tr, kappa_tr, kappa_n, delta_eps_P_n):  # solves using yield function and isotropic hardening equation
-    delta_eps_p = x[0]
-    kappa_n1 = x[1]
-    beta = V * jnp.arcsinh(delta_eps_p/time_step/f)
-    F1 = sigma_tr-kappa_tr-beta # yield function
+def plasticity(x, sigma_tr, kappa_tr, kappa_n, delta_eps_P_n):  
+# solves using yield function and isotropic hardening equation
+    delta_eps_p = x[0]      # eps
+    kappa_n1 = x[1]         # MPa
+    beta = V * jnp.arcsinh(delta_eps_p/time_step/f)         # MPa[sin((1/s)/(1/s))]
+    # yield function
+    F1 = sigma_tr-kappa_tr-beta         # MPa
+    # P - [(1/P) + (s2/P)](P2) - P
+    # R_s can't be s^2 !!!
     F2 = kappa_n-(R_d*delta_eps_p+R_s*time_step)*kappa_n1**2-kappa_n1
     fs = jnp.asarray([F1, F2])  # Write outputs to function array for logical loop
     return fs
