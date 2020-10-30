@@ -143,7 +143,7 @@ def plasticity(x, sigma_tr, kappa_tr, kappa_n, delta_eps_P_n):
     # yield function
     F1 = sigma_tr-kappa_tr-beta         # MPa
     # P - [(1/P) + (s2/P)](P2) - P
-    # R_s can't be s^2 !!!
+    # R_s can't be s^2 !!! (look back @ line 71)
     F2 = kappa_n-(R_d*delta_eps_p+R_s*time_step)*kappa_n1**2-kappa_n1
     fs = jnp.asarray([F1, F2])  # Write outputs to function array for logical loop
     return fs
@@ -172,10 +172,11 @@ def multivariateNewton(f, x0, tol, N):
 
 
 ## Main Logical Loop to build Stress-Strain curve
-for n in range(0,N_partitions):       # nth timestep partition of strain subdivisions
-    # sigma_n = sigma_n1              # makes current stress from previous future stress
-    # delta_eps_p_n = delta_eps_p_n1  # delta_eps_p_k, initially 0, should be output at end of current iteration for future iteration
-    # kappa_n = kappa_n1              # makes current kappa from previous future kappa
+for n in range(0,N_partitions):     # nth timestep partition of strain subdivisions
+    # sigma_n = sigma_n1            # makes current stress from previous future stress
+    # delta_eps_p_n = delta_eps_p_n1
+    # delta_eps_p_k, initially 0, should be output at end of current iteration for future iteration
+    # kappa_n = kappa_n1            # makes current kappa from previous future kappa
     # print(sigma_n[n])
     sigma_n1, kappa_n1, delta_eps_p_n1 = radialReturn(sigma_n[-1], delta_eps_p_n[n], kappa_n[n])  # calls function with current stress and kappa
     # jax.ops.index_update(sigma_n, jax.ops.index[n+1],sigma_n1)
@@ -188,9 +189,14 @@ for n in range(0,N_partitions):       # nth timestep partition of strain subdivi
     print(sigma_n)
     # print(delta_eps_p_n)
     print(n)
+
+## Plot Outputs to show Stress-Strain curve
 # plot stress-strain curve
 # converts x-axis from partitions to total strain applied
 plt.plot(time_step*range(0, N_partitions + 1)/eps_dot, sigma_n)
 plt.show()
+
+
+
 ## End of Document
 # that's all folks!
