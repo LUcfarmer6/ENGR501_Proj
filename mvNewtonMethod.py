@@ -18,19 +18,21 @@
 
 ## Import Packages
 import numpy as np
-import jax
-import jax.numpy as jnp
-from jax import jit, vmap, grad
+# import jax
+# import jax.numpy as jnp
+# from jax import jit, vmap, grad
+import auto_diff
 import timeit
 from matplotlib import pyplot as plt
+plt.close('all')
 ## Define System of Equations
 # INPUT: Array of independent variables x = [x0,x1,...,xn]
 #   Inputs will be strain rate (eps_dot), time step (t_step), and temperature (T)
 #   along with other material constants (C_1 to C_n)
-eps_dot = 0.1        # Strain Rate in Units [1/s]
-perc_elong = 11     # percent elongation * 100
-N_partitions = 200
-time_step = perc_elong/eps_dot/100/N_partitions   # Time step [seconds]
+eps_dot = 0.1*2        # Strain Rate in Units [1/s]
+perc_elong = 0.11*2     # percent elongation [%] / 100
+N_partitions = 500
+time_step = perc_elong/eps_dot/N_partitions   # Time step [seconds]
 T = 296             # Temperature [Kelvin] (23°C)
 C = np.ones(19)
 # sigma_n = jnp.zeros(N_partitions)           # Initial value of stress (should be zero)
@@ -39,24 +41,24 @@ kappa_n = [0.0]
 delta_eps_p_n = [0.0]
 # kappa_n = jnp.zeros(N_partitions)           # Initial value of kappa
 # delta_eps_p_n = jnp.zeros(N_partitions)     # Initial guess for plastic strain
-mu = 1                                      # Shear modulus [GPa] (guess value)
-C[1] = 312.86e6
+mu = 26.9e3                                      # Shear modulus [GPa] (guess value)
+C[1] = 312.86
 C[2] = 154.78
-C[3] = 27.2e6
+C[3] = 27.2
 C[4] = 818.26
 C[5] = 6914.1
 C[6] = 233.39
-C[7] = 9e-6
+C[7] = 9
 C[8] = 1632.34
-C[9] = 148.36e6
+C[9] = 148.36
 C[10] = 942.28
-C[11] = 100.67e-6
+C[11] = 100.672
 C[12] = 2517.12
-C[13] = 98.53e-6
+C[13] = 98.53
 C[14] = 171.56
-C[15] = 8950.63e6
+C[15] = 8950.63
 C[16] = 279.18
-C[17] = 7363.75e-6
+C[17] = 7363.75
 C[18] = 3316.82
 
 #   Equation constants
@@ -108,14 +110,15 @@ def radialReturn(sigma_n, delta_eps_p_n, kappa_n):          # Defines function i
         kappa_n1 = kappa_tr + H * delta_eps_p_n1   # initial guess of future kappa with initial guess of future plastic strain
         xs = [delta_eps_p_n1, kappa_n1]    # vector of future guesses
         def fs(x):
-            result = plasticity(x, sigma_tr, kappa_tr, delta_eps_p_n, kappa_n)  # input "xs" returns array "fs"
+            result = plasticity(x, sigma_tr, kappa_tr, kappa_n, delta_eps_p_n)  # input "xs" returns array "fs"
             return result
         res = multivariateNewton(fs, xs, 1e-5, 30) # Perform Newton Method for System "fs" with guess  [x0,x1,x2] = [1,1,1] with tol = 1e-8 and N maximum iterations
         # print(fs(res))                  # Print "fs" output for system
         delta_eps_p_n1 = res[0]         # proclaims future delta_eps_p from Newton Raphson
         sigma_n1 = sigma_tr - 2 * mu * delta_eps_p_n1  # proclaims future stress
         # print(sigma_n1)
-        kappa_n1 = res[1]                   # proclaims future kappa from Newton Raphson's F2
+        kappa_n1 = res[1]  # proclaims future kappa from Newton Raphson's F2
+        print("I AM PLASTIC")
     return [sigma_n1, kappa_n1, delta_eps_p_n1]
 
 def plasticity(x, sigma_tr, kappa_tr, kappa_n, delta_eps_P_n):  # solves using yield function and isotropic hardening equation
@@ -144,7 +147,7 @@ def multivariateNewton(f, x0, tol, N):
         atol = jnp.linalg.norm(jnp.subtract(x,x0), np.inf) # Calculate: ||x_{n+1}-x_n||/||x_{n+1}||
         # print(i, tol)             # Print iteration and relTol
         if atol < tol:              # Check for convergence
-            # print(x)              # Print Result
+            print(k)              # Print Result
             return x                # Return Result
         x0 = x                      # Update x0 for Next iteration
     print("Failed to converge")     # Print Message if Convergence did not occur
@@ -156,7 +159,7 @@ for n in range(0,N_partitions):       # nth timestep partition of strain subdivi
     # delta_eps_p_n = delta_eps_p_n1  # delta_eps_p_k, initially 0, should be output at end of current iteration for future iteration
     # kappa_n = kappa_n1              # makes current kappa from previous future kappa
     # print(sigma_n[n])
-    sigma_n1, kappa_n1, delta_eps_p_n1 = radialReturn(sigma_n[-1], delta_eps_p_n[n], kappa_n[n])  # calls function with current stress and kappa
+    sigma_n1, kappa_n1, delta_eps_p_n1 = radialReturn(sigma_n[-1], delta_eps_p_n[-1], kappa_n[-1])  # calls function with current stress and kappa
     # jax.ops.index_update(sigma_n, jax.ops.index[n+1],sigma_n1)
     sigma_n.append(sigma_n1)
     # print(delta_eps_p_n[n+1])
@@ -164,12 +167,12 @@ for n in range(0,N_partitions):       # nth timestep partition of strain subdivi
     # jax.ops.index_update(delta_eps_p_n, jax.ops.index[n+1],delta_eps_p_n1)
     kappa_n.append(kappa_n1)
     # jax.ops.index_update(kappa_n, jax.ops.index[n + 1], kappa_n1)
-    print(sigma_n)
+    # print(sigma_n)
     # print(delta_eps_p_n)
-    print(n)
+    # print(n)
 # plot stress-strain curve
 # converts x-axis from partitions to total strain applied
-plt.plot(time_step*range(0, N_partitions + 1)/eps_dot, sigma_n)
+plt.plot(time_step*np.arange(0, N_partitions+1)/eps_dot, sigma_n)
 plt.show()
 ## End of Document
 # that's all folks!
