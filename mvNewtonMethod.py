@@ -122,7 +122,7 @@ def radialReturn(sigma_n, delta_eps_p_n, kappa_n):          # Defines function i
         kappa_n1 = kappa_tr + H * delta_eps_p_n1        # must be MPa <-- H must be MPa
         xs = [delta_eps_p_n1, kappa_n1]    # vector of future guesses
         def fs(x):
-            result = plasticity(x, sigma_tr, kappa_tr, delta_eps_p_n, kappa_n)  # input "xs" returns array "fs"
+            result = plasticity(x, sigma_tr, kappa_tr, kappa_n, delta_eps_p_n)  # input "xs" returns array "fs"
             return result
         res = multivariateNewton(fs, xs, 1e-5, 30) # Perform Newton Method for System "fs" with guess  [x0,x1,x2] = [1,1,1] with tol = 1e-8 and N maximum iterations
         # print(fs(res))                  # Print "fs" output for system
